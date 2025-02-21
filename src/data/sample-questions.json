@@ -1,0 +1,12 @@
+[
+  {
+    "question": "What is the capital of Japan?",
+    "choices": ["Beijing", "Seoul", "Tokyo", "Bangkok"],
+    "correctAnswer": "Tokyo"
+  },
+  {
+    "question": "Which programming language was created by Brendan Eich?",
+    "choices": ["Python", "JavaScript", "Java", "C++"],
+    "correctAnswer": "JavaScript"
+  }
+] 
