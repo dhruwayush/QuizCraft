@@ -7,6 +7,7 @@
     "@emotion/styled": "^11.14.0",
     "@pdf-lib/upng": "^1.0.1",
     "@supabase/supabase-js": "^2.49.1",
+    "antd": "^5.24.3",
     "axios": "^1.7.9",
     "cra-template": "1.2.0",
     "pdf-parse": "^1.1.1",
