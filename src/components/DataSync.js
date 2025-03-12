@@ -35,7 +35,7 @@ const ButtonGroup = styled.div`
   margin: 1.5rem 0;
 `;
 
-const Button = styled.button`
+const StyledButton = styled.button`
   padding: 0.8rem 1.5rem;
   border: none;
   border-radius: ${theme.borderRadius.md};
@@ -112,6 +112,15 @@ const MigrationResults = styled.div`
   background: white;
   border-radius: ${theme.borderRadius.sm};
   border: 1px solid ${theme.colors.borderColor};
+`;
+
+const ResultsContainer = styled.div`
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background: white;
+  border-radius: ${theme.borderRadius.md};
+  border: 1px solid ${theme.colors.borderColor};
+  box-shadow: ${theme.shadows.sm};
 `;
 
 const ResultItem = styled.div`
@@ -337,13 +346,13 @@ const DataSync = () => {
           </Checkbox>
           
           <ButtonGroup>
-            <Button 
+            <StyledButton 
               onClick={handleMigrateLocalStorage} 
               disabled={isMigrating}
               secondary
             >
               {isMigrating ? 'Migrating...' : 'Migrate LocalStorage Question Sets'}
-            </Button>
+            </StyledButton>
           </ButtonGroup>
           
           {error && <Alert message="Error" description={error} type="error" showIcon style={{ marginTop: 16 }} />}
@@ -377,9 +386,9 @@ const DataSync = () => {
         </MigrationSection>
         
         <ButtonGroup>
-          <Button onClick={checkEnvironment} secondary>
+          <StyledButton onClick={checkEnvironment} secondary>
             Check Environment
-          </Button>
+          </StyledButton>
         </ButtonGroup>
         
         {showEnvInfo && envInfo && (
@@ -397,12 +406,12 @@ const DataSync = () => {
         </SyncDescription>
         
         <ButtonGroup>
-          <Button 
+          <StyledButton 
             onClick={handleExport} 
             disabled={isExporting}
           >
             {isExporting ? 'Exporting...' : 'Export Data'}
-          </Button>
+          </StyledButton>
         </ButtonGroup>
         
         <SyncHeader>Import Data</SyncHeader>
@@ -412,9 +421,9 @@ const DataSync = () => {
         
         <div>
           <label htmlFor="file-upload">
-            <Button as="span" secondary>
+            <StyledButton as="span" secondary>
               Select Import File
-            </Button>
+            </StyledButton>
           </label>
           <input 
             id="file-upload" 
@@ -432,12 +441,12 @@ const DataSync = () => {
         />
         
         <ButtonGroup>
-          <Button 
+          <StyledButton 
             onClick={handleImport} 
             disabled={isImporting || !importData.trim()}
           >
             {isImporting ? 'Importing...' : 'Import Data'}
-          </Button>
+          </StyledButton>
         </ButtonGroup>
         
         <div>
