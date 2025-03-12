@@ -3,8 +3,11 @@ import styled from '@emotion/styled';
 import { theme } from '../theme';
 import { exportDatabase, importDatabase } from '../utils/supabaseSync';
 import { checkEnvironmentVariables } from '../utils/envCheck';
-import { migrateLocalStorageToSupabase } from '../utils/questionSetUtils';
+import { migrateLocalStorageToSupabase } from '../services/supabaseSync';
 import EnvManager from './EnvManager';
+import { transferQuestionSetsToMainTables, fixQuestionsOptionsFormat } from '../utils/questionSetsConverter';
+import { getLocalStorageKeys } from '../utils/storageUtils';
+import { Button, Divider, Alert, Spin, Typography, Checkbox as AntCheckbox, Card, Statistic, Row, Col } from 'antd';
 
 const SyncContainer = styled.div`
   background: white;
@@ -145,6 +148,11 @@ const DataSync = () => {
   const [showEnvInfo, setShowEnvInfo] = useState(false);
   const [envInfo, setEnvInfo] = useState(null);
   const [migrationResults, setMigrationResults] = useState(null);
+  const [transferResults, setTransferResults] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isTranferLoading, setIsTransferLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [transferError, setTransferError] = useState(null);
   const [overwriteExisting, setOverwriteExisting] = useState(false);
 
   const handleExport = async () => {
@@ -240,11 +248,12 @@ const DataSync = () => {
   };
 
   const handleMigrateLocalStorage = async () => {
+    setIsMigrating(true);
+    setStatus({ type: 'info', message: 'Migrating localStorage question sets to Supabase...' });
+    setMigrationResults(null);
+    setError(null);
+    
     try {
-      setIsMigrating(true);
-      setStatus({ type: 'info', message: 'Migrating localStorage question sets to Supabase...' });
-      setMigrationResults(null);
-      
       const result = await migrateLocalStorageToSupabase({ overwriteExisting });
       
       if (result.success) {
@@ -256,11 +265,42 @@ const DataSync = () => {
       } else {
         throw new Error(result.error);
       }
-    } catch (error) {
-      console.error('Migration error:', error);
-      setStatus({ type: 'error', message: `Migration failed: ${error.message}` });
+    } catch (err) {
+      console.error('Migration error:', err);
+      setError(err.message || 'An error occurred during migration');
     } finally {
       setIsMigrating(false);
+    }
+  };
+
+  const handleTransferToMainTables = async () => {
+    setIsTransferLoading(true);
+    setTransferError(null);
+    setTransferResults(null);
+
+    try {
+      // First, transfer question sets to main tables
+      const transferResult = await transferQuestionSetsToMainTables();
+      
+      if (!transferResult.success) {
+        throw new Error(transferResult.error || 'Failed to transfer question sets');
+      }
+      
+      // Then fix any issues with options formatting
+      const fixResult = await fixQuestionsOptionsFormat();
+      
+      // Combine results
+      const combinedResults = {
+        ...transferResult.result,
+        options_fixed: fixResult.success ? fixResult.result.fixed : 0
+      };
+      
+      setTransferResults(combinedResults);
+    } catch (err) {
+      console.error('Error transferring data:', err);
+      setTransferError(err.message || 'An error occurred during transfer');
+    } finally {
+      setIsTransferLoading(false);
     }
   };
 
@@ -305,6 +345,8 @@ const DataSync = () => {
               {isMigrating ? 'Migrating...' : 'Migrate LocalStorage Question Sets'}
             </Button>
           </ButtonGroup>
+          
+          {error && <Alert message="Error" description={error} type="error" showIcon style={{ marginTop: 16 }} />}
           
           {migrationResults && (
             <MigrationResults>
@@ -402,6 +444,50 @@ const DataSync = () => {
           Status: {status.message}
           <StatusBadge status={status.type}>{status.type.toUpperCase()}</StatusBadge>
         </div>
+        
+        <ButtonGroup>
+          <Button
+            type="primary"
+            onClick={handleTransferToMainTables}
+            loading={isTranferLoading}
+            disabled={isTranferLoading}
+          >
+            Transfer to Main Tables
+          </Button>
+        </ButtonGroup>
+        
+        {transferError && <Alert message="Error" description={transferError} type="error" showIcon style={{ marginTop: 16 }} />}
+        
+        {transferResults && (
+          <ResultsContainer>
+            <Typography.Title level={5}>Transfer Results:</Typography.Title>
+            <Row gutter={16}>
+              <Col span={6}>
+                <Statistic title="Sets Processed" value={transferResults.total_sets_processed} />
+              </Col>
+              <Col span={6}>
+                <Statistic title="Folders Created" value={transferResults.folders.created} />
+              </Col>
+              <Col span={6}>
+                <Statistic title="Questions Added" value={transferResults.questions.created} />
+              </Col>
+              <Col span={6}>
+                <Statistic title="Questions Fixed" value={transferResults.options_fixed || 0} />
+              </Col>
+            </Row>
+            {transferResults.folders.errors > 0 || transferResults.questions.errors > 0 ? (
+              <Alert 
+                message="Some errors occurred" 
+                description={`${transferResults.folders.errors} folder errors and ${transferResults.questions.errors} question errors`}
+                type="warning" 
+                showIcon 
+                style={{ marginTop: 16 }} 
+              />
+            ) : (
+              <Alert message="Success" description="Transfer completed successfully" type="success" showIcon style={{ marginTop: 16 }} />
+            )}
+          </ResultsContainer>
+        )}
       </SyncContainer>
     </>
   );
