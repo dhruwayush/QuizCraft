@@ -3,6 +3,7 @@ import styled from '@emotion/styled';
 import { theme } from '../theme';
 import { exportDatabase, importDatabase } from '../utils/supabaseSync';
 import { checkEnvironmentVariables } from '../utils/envCheck';
+import { migrateLocalStorageToSupabase } from '../utils/questionSetUtils';
 import EnvManager from './EnvManager';
 
 const SyncContainer = styled.div`
@@ -90,14 +91,44 @@ const ImportArea = styled.textarea`
   resize: vertical;
 `;
 
+const MigrationSection = styled.div`
+  margin: 2rem 0;
+  padding: 1.5rem;
+  border: 1px solid ${theme.colors.borderColor};
+  border-radius: ${theme.borderRadius.md};
+  background-color: ${theme.colors.backgroundLight};
+`;
+
+const MigrationResults = styled.div`
+  margin-top: 1.5rem;
+  max-height: 300px;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 0.85rem;
+  padding: 1rem;
+  background: white;
+  border-radius: ${theme.borderRadius.sm};
+  border: 1px solid ${theme.colors.borderColor};
+`;
+
+const ResultItem = styled.div`
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+  border-radius: ${theme.borderRadius.sm};
+  background-color: ${props => props.success ? 'rgba(40, 167, 69, 0.1)' : 'rgba(220, 53, 69, 0.1)'};
+  border-left: 3px solid ${props => props.success ? '#28a745' : '#dc3545'};
+`;
+
 const DataSync = () => {
   const [exportData, setExportData] = useState(null);
   const [importData, setImportData] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isMigrating, setIsMigrating] = useState(false);
   const [status, setStatus] = useState({ type: 'info', message: 'Ready to sync data' });
   const [showEnvInfo, setShowEnvInfo] = useState(false);
   const [envInfo, setEnvInfo] = useState(null);
+  const [migrationResults, setMigrationResults] = useState(null);
 
   const handleExport = async () => {
     try {
@@ -191,6 +222,31 @@ const DataSync = () => {
     setShowEnvInfo(true);
   };
 
+  const handleMigrateLocalStorage = async () => {
+    try {
+      setIsMigrating(true);
+      setStatus({ type: 'info', message: 'Migrating localStorage question sets to Supabase...' });
+      setMigrationResults(null);
+      
+      const result = await migrateLocalStorageToSupabase();
+      
+      if (result.success) {
+        setStatus({ 
+          type: 'success', 
+          message: `Successfully migrated ${result.results.migrated} question sets to Supabase (${result.results.errors} errors)`
+        });
+        setMigrationResults(result.results);
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Migration error:', error);
+      setStatus({ type: 'error', message: `Migration failed: ${error.message}` });
+    } finally {
+      setIsMigrating(false);
+    }
+  };
+
   return (
     <>
       <EnvManager />
@@ -202,6 +258,47 @@ const DataSync = () => {
           This tool helps you synchronize data between different environments (local development, staging, production).
           You can export data from one environment and import it into another to ensure consistency.
         </SyncDescription>
+        
+        <MigrationSection>
+          <SyncHeader>Migrate LocalStorage to Supabase</SyncHeader>
+          <SyncDescription>
+            If you've been using the app locally and storing question sets in your browser's localStorage,
+            you can migrate that data to Supabase so it will be available on all devices and in your Vercel deployment.
+            This is a one-time operation to transition from local to cloud storage.
+          </SyncDescription>
+          
+          <ButtonGroup>
+            <Button 
+              onClick={handleMigrateLocalStorage} 
+              disabled={isMigrating}
+              secondary
+            >
+              {isMigrating ? 'Migrating...' : 'Migrate LocalStorage Question Sets'}
+            </Button>
+          </ButtonGroup>
+          
+          {migrationResults && (
+            <MigrationResults>
+              <p>Migration summary:</p>
+              <p>- Successfully migrated: {migrationResults.migrated}</p>
+              <p>- Errors: {migrationResults.errors}</p>
+              
+              {migrationResults.details.length > 0 && (
+                <>
+                  <p>Details:</p>
+                  {migrationResults.details.map((detail, index) => (
+                    <ResultItem key={index} success={detail.success}>
+                      <div>Folder: {detail.folder}</div>
+                      <div>File: {detail.file}</div>
+                      {detail.error && <div>Error: {detail.error}</div>}
+                      <div>Status: {detail.success ? 'Success' : 'Failed'}</div>
+                    </ResultItem>
+                  ))}
+                </>
+              )}
+            </MigrationResults>
+          )}
+        </MigrationSection>
         
         <ButtonGroup>
           <Button onClick={checkEnvironment} secondary>

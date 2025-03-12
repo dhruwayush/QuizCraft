@@ -10,6 +10,7 @@ import { css } from '@emotion/react';
 import QuizHistory from './QuizHistory';
 import CustomQuiz from './CustomQuiz';
 import DataSync from './DataSync';
+import { getQuestionSets, saveQuestionSet, deleteQuestionSet } from '../utils/questionSetUtils';
 
 const AdminContainer = styled.div`
   padding: 2rem;
@@ -240,22 +241,32 @@ const Admin = () => {
   const [error, setError] = useState(null);
   const [reportedQuestions, setReportedQuestions] = useState([]);
   const [editingReport, setEditingReport] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [saveStatus, setSaveStatus] = useState({ type: '', message: '' });
 
   useEffect(() => {
-    // Load files for the selected folder
-    const savedFiles = localStorage.getItem(`questionFiles_${selectedFolder}`);
-    if (savedFiles) {
-      setFiles(JSON.parse(savedFiles));
-    } else {
-      setFiles({});
-    }
+    // Load question sets from Supabase for the selected folder
+    loadQuestionSets();
 
-    // Load reported questions
+    // Load reported questions (keep using localStorage for this for now)
     const savedReports = localStorage.getItem('reportedQuestions');
     if (savedReports) {
       setReportedQuestions(JSON.parse(savedReports));
     }
   }, [selectedFolder]);
+
+  const loadQuestionSets = async () => {
+    setLoading(true);
+    try {
+      const data = await getQuestionSets(selectedFolder);
+      setFiles(data);
+    } catch (error) {
+      console.error('Error loading question sets:', error);
+      setError('Failed to load question sets');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleQuestionsUpload = (newQuestions) => {
     // Transform the questions to ensure choices are in the correct format
@@ -277,23 +288,34 @@ const Admin = () => {
     setActiveTab('edit');
   };
 
-  const handleSaveQuestions = () => {
+  const handleSaveQuestions = async () => {
     if (questions.length === 0) return;
     
     const timestamp = new Date().toISOString().split('T')[0];
     const defaultFileName = fileName || `question_set_${timestamp}`;
     
-    const updatedFiles = {
-      ...files,
-      [defaultFileName]: {
-        questions,
-        timestamp: new Date().toISOString()
+    setSaveStatus({ type: 'info', message: 'Saving question set...' });
+    
+    try {
+      const result = await saveQuestionSet(selectedFolder, defaultFileName, questions);
+      
+      if (result.success) {
+        setSaveStatus({ type: 'success', message: 'Question set saved successfully!' });
+        // Refresh the list
+        loadQuestionSets();
+        setFileName('');
+      } else {
+        throw new Error(result.error);
       }
-    };
-
-    localStorage.setItem(`questionFiles_${selectedFolder}`, JSON.stringify(updatedFiles));
-    setFiles(updatedFiles);
-    setFileName('');
+    } catch (error) {
+      console.error('Error saving question set:', error);
+      setSaveStatus({ type: 'error', message: `Failed to save: ${error.message}` });
+    }
+    
+    // Clear status after 3 seconds
+    setTimeout(() => {
+      setSaveStatus({ type: '', message: '' });
+    }, 3000);
   };
 
   const loadQuestionSet = (fileName) => {
@@ -319,11 +341,20 @@ const Admin = () => {
     }
   };
 
-  const deleteQuestionSet = (fileName) => {
-    const updatedFiles = { ...files };
-    delete updatedFiles[fileName];
-    localStorage.setItem(`questionFiles_${selectedFolder}`, JSON.stringify(updatedFiles));
-    setFiles(updatedFiles);
+  const handleDeleteQuestionSet = async (fileName) => {
+    try {
+      const result = await deleteQuestionSet(selectedFolder, fileName);
+      
+      if (result.success) {
+        // Refresh the list
+        loadQuestionSets();
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Error deleting question set:', error);
+      setError(`Failed to delete: ${error.message}`);
+    }
   };
 
   const parseTextQuestions = () => {
@@ -586,7 +617,7 @@ const Admin = () => {
         </TabContainer>
 
         {questions.length > 0 && (
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: '1rem' }}>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: '1rem', alignItems: 'center' }}>
             <input
               type="text"
               value={fileName}
@@ -597,6 +628,16 @@ const Admin = () => {
             <SaveButton onClick={handleSaveQuestions}>
               Save Question Set
             </SaveButton>
+            {saveStatus.message && (
+              <span style={{ 
+                color: saveStatus.type === 'success' ? '#28a745' : 
+                       saveStatus.type === 'error' ? '#dc3545' : '#007bff',
+                fontSize: '0.875rem',
+                marginLeft: '0.5rem'
+              }}>
+                {saveStatus.message}
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -790,25 +831,31 @@ const Admin = () => {
 
       <FileList>
         <h3>Saved Question Sets in {selectedFolder} for QuizCraft</h3>
-        {Object.entries(files).map(([name, data]) => (
-          <FileItem key={name}>
-            <span>📄 {name} ({data.questions.length} questions)</span>
-            <div>
-              <button 
-                onClick={() => loadQuestionSet(name)}
-                style={{ marginRight: '0.5rem' }}
-              >
-                Load
-              </button>
-              <button 
-                onClick={() => deleteQuestionSet(name)}
-                style={{ backgroundColor: '#dc3545', color: 'white', border: 'none' }}
-              >
-                Delete
-              </button>
-            </div>
-          </FileItem>
-        ))}
+        {loading ? (
+          <p>Loading question sets...</p>
+        ) : Object.entries(files).length === 0 ? (
+          <p>No question sets found in this folder.</p>
+        ) : (
+          Object.entries(files).map(([name, data]) => (
+            <FileItem key={name}>
+              <span>📄 {name} ({data.questions.length} questions)</span>
+              <div>
+                <button 
+                  onClick={() => loadQuestionSet(name)}
+                  style={{ marginRight: '0.5rem' }}
+                >
+                  Load
+                </button>
+                <button 
+                  onClick={() => handleDeleteQuestionSet(name)}
+                  style={{ backgroundColor: '#dc3545', color: 'white', border: 'none' }}
+                >
+                  Delete
+                </button>
+              </div>
+            </FileItem>
+          ))
+        )}
       </FileList>
     </AdminContainer>
   );
