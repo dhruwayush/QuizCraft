@@ -8,6 +8,11 @@ import ScheduledQuizzes from './components/ScheduledQuizzes';
 import SavedQuizzes from './components/SavedQuizzes';
 import StatsView from './components/StatsView';
 import StarredQuestionsList from './components/StarredQuestionsList';
+import { SupabaseProvider, useSupabase } from './contexts/SupabaseContext';
+import Home from './components/Home';
+import QuizHistory from './components/QuizHistory';
+import Auth from './components/Auth';
+import Profile from './components/Profile';
 
 const AppContainer = styled.div`
   min-height: 100vh;
@@ -55,98 +60,148 @@ const MainContent = styled.main`
   margin: 0 auto;
 `;
 
-const App = () => {
-  const [currentView, setCurrentView] = useState('quiz');
-  const [selectedQuestions, setSelectedQuestions] = useState(null);
-  const [savedQuizId, setSavedQuizId] = useState(null);
+const AppContent = () => {
+  const { user, signOut } = useSupabase();
+  const [view, setView] = useState('home');
+  const [quizQuestions, setQuizQuestions] = useState([]);
   const [selectedFolder, setSelectedFolder] = useState(null);
+  const [savedQuizId, setSavedQuizId] = useState(null);
 
   const handleStartQuiz = (questions, folder, quizId = null) => {
-    setSelectedQuestions(questions);
-    setSavedQuizId(quizId);
+    setQuizQuestions(questions);
     setSelectedFolder(folder);
+    setSavedQuizId(quizId);
+    setView('quiz');
   };
 
   const handleResumeQuiz = (questions, quizId, folder) => {
-    setSelectedQuestions(questions);
+    setQuizQuestions(questions);
     setSavedQuizId(quizId);
-    setCurrentView('quiz');
     setSelectedFolder(folder);
+    setView('quiz');
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    setView('home');
   };
 
   return (
     <AppContainer>
       <Header>
-        <Logo>MCQ Quiz</Logo>
+        <Logo>QuizCraft</Logo>
         <Navigation>
           <NavButton 
-            active={currentView === 'quiz'} 
-            onClick={() => setCurrentView('quiz')}
+            onClick={() => setView('home')}
+            active={view === 'home'}
           >
-            Take Quiz
+            Home
           </NavButton>
           <NavButton 
-            active={currentView === 'scheduled'} 
-            onClick={() => setCurrentView('scheduled')}
+            onClick={() => setView('quizzes')}
+            active={view === 'quizzes'}
           >
-            Scheduled Quizzes
+            Question Sets
           </NavButton>
           <NavButton 
-            active={currentView === 'saved'} 
-            onClick={() => setCurrentView('saved')}
+            onClick={() => setView('saved')}
+            active={view === 'saved'}
           >
             Saved Quizzes
           </NavButton>
           <NavButton 
-            active={currentView === 'starred'} 
-            onClick={() => setCurrentView('starred')}
+            onClick={() => setView('scheduled')}
+            active={view === 'scheduled'}
           >
-            Starred Questions
+            Scheduled
           </NavButton>
           <NavButton 
-            active={currentView === 'stats'} 
-            onClick={() => setCurrentView('stats')}
+            onClick={() => setView('starred')}
+            active={view === 'starred'}
           >
-            Statistics
+            Starred
           </NavButton>
           <NavButton 
-            active={currentView === 'admin'} 
-            onClick={() => setCurrentView('admin')}
+            onClick={() => setView('stats')}
+            active={view === 'stats'}
           >
-            Admin Panel
+            Stats
           </NavButton>
+          <NavButton 
+            onClick={() => setView('admin')}
+            active={view === 'admin'}
+          >
+            Admin
+          </NavButton>
+          <NavButton 
+            onClick={() => setView('history')}
+            active={view === 'history'}
+          >
+            History
+          </NavButton>
+          {user ? (
+            <>
+              <NavButton onClick={() => setView('profile')}>
+                Profile
+              </NavButton>
+              <NavButton onClick={handleSignOut}>
+                Sign Out
+              </NavButton>
+            </>
+          ) : (
+            <NavButton onClick={() => setView('login')}>
+              Login
+            </NavButton>
+          )}
         </Navigation>
       </Header>
 
-      <MainContent>
-        {currentView === 'quiz' && !selectedQuestions && (
-          <QuestionSetSelector onStartQuiz={handleStartQuiz} />
-        )}
-        {selectedQuestions && (
-          <Quiz 
-            questions={selectedQuestions}
-            onClose={() => {
-              setSelectedQuestions(null);
-              setSavedQuizId(null);
-            }}
-            savedQuizId={savedQuizId}
-            selectedFolder={selectedFolder}
-            setSelectedFolder={setSelectedFolder}
-          />
-        )}
-        {currentView === 'scheduled' && (
-          <ScheduledQuizzes onStartQuiz={handleStartQuiz} />
-        )}
-        {currentView === 'saved' && (
-          <SavedQuizzes onResumeQuiz={handleResumeQuiz} />
-        )}
-        {currentView === 'starred' && (
-          <StarredQuestionsList onStartQuiz={handleStartQuiz} />
-        )}
-        {currentView === 'stats' && <StatsView />}
-        {currentView === 'admin' && <Admin />}
-      </MainContent>
+      {view === 'home' && <Home onStartQuiz={handleStartQuiz} />}
+      {view === 'quiz' && (
+        <Quiz 
+          questions={quizQuestions} 
+          onClose={() => setView('quizzes')}
+          selectedFolder={selectedFolder}
+          setSelectedFolder={setSelectedFolder}
+          savedQuizId={savedQuizId}
+        />
+      )}
+      {view === 'quizzes' && (
+        <QuestionSetSelector onStartQuiz={handleStartQuiz} />
+      )}
+      {view === 'saved' && (
+        <SavedQuizzes onResumeQuiz={handleResumeQuiz} />
+      )}
+      {view === 'scheduled' && (
+        <ScheduledQuizzes onStartQuiz={handleStartQuiz} />
+      )}
+      {view === 'starred' && (
+        <StarredQuestionsList />
+      )}
+      {view === 'stats' && (
+        <StatsView />
+      )}
+      {view === 'admin' && (
+        <Admin />
+      )}
+      {view === 'history' && (
+        <QuizHistory />
+      )}
+      {view === 'login' && (
+        <Auth />
+      )}
+      {view === 'profile' && (
+        <Profile />
+      )}
     </AppContainer>
+  );
+};
+
+const App = () => {
+  return (
+    <SupabaseProvider>
+      <AppContent />
+    </SupabaseProvider>
   );
 };
 

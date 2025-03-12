@@ -1,70 +1,150 @@
-# Getting Started with Create React App
+# QuizCraft
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+QuizCraft is an interactive MCQ quiz application built with React and Supabase.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- User authentication and profile management
+- Create and organize questions in folders
+- Take quizzes with real-time feedback
+- Track performance and statistics
+- Bookmark favorite questions
+- Schedule quizzes for later
 
-### `npm start`
+## Architecture
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+The application is built with the following architecture:
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+- **Frontend**: React with Emotion for styling
+- **Database**: Supabase (PostgreSQL)
+- **Authentication**: Supabase Auth
+- **Server**: Express.js middleware server (optional)
 
-### `npm test`
+## Project Structure
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```
+QuizCraft/
+├── src/                    # React frontend code
+│   ├── components/         # React components
+│   ├── config/             # Configuration files
+│   ├── contexts/           # React context providers
+│   ├── utils/              # Utility functions
+│   ├── theme.js            # Theme configuration
+│   └── App.js              # Main App component
+├── server/                 # Backend server (optional)
+│   ├── supabase-server.js  # Express server with Supabase integration
+│   ├── init.js             # Server initialization script
+│   └── README.md           # Server documentation
+├── public/                 # Static files
+├── supabase_schema.sql     # Database schema SQL
+├── supabase_rls.sql        # Row Level Security policies
+└── SUPABASE_SETUP.md       # Supabase setup guide
+```
 
-### `npm run build`
+## Setup
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### Frontend Setup
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/QuizCraft.git
+   cd QuizCraft
+   ```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-### `npm run eject`
+3. Create a `.env` file with your Supabase credentials:
+   ```
+   REACT_APP_SUPABASE_URL=your_supabase_url
+   REACT_APP_SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+4. Start the development server:
+   ```bash
+   npm start
+   ```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### Supabase Setup
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+See [SUPABASE_SETUP.md](SUPABASE_SETUP.md) for detailed instructions on setting up Supabase for this project.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### Server Setup (Optional)
 
-## Learn More
+The QuizCraft application can be extended with a middleware server that provides additional features:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+1. Navigate to the server directory:
+   ```bash
+   cd server
+   ```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+2. Install server dependencies:
+   ```bash
+   npm install
+   ```
 
-### Code Splitting
+3. Initialize the server configuration:
+   ```bash
+   npm run init
+   ```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+4. Configure the server environment:
+   - Copy `.env.example` to `.env`
+   - Add your Supabase service role key
 
-### Analyzing the Bundle Size
+5. Start the server:
+   ```bash
+   npm run dev
+   ```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+For more details, see the [server README](server/README.md).
 
-### Making a Progressive Web App
+## Connecting Frontend to Server
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+To connect the React frontend to the Express server:
 
-### Advanced Configuration
+1. Add the server URL to your frontend `.env` file:
+   ```
+   REACT_APP_SERVER_URL=http://localhost:5000/api
+   ```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+2. Use the server API functions in your components:
+   ```javascript
+   import { serverQuestions, serverFolders } from '../utils/serverApi';
 
-### Deployment
+   // Example usage
+   const fetchQuestions = async () => {
+     try {
+       const response = await serverQuestions.getAll();
+       setQuestions(response.data);
+     } catch (error) {
+       console.error('Error fetching questions:', error);
+     }
+   };
+   ```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+## Development
 
-### `npm run build` fails to minify
+### Direct Supabase Mode
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+By default, the frontend communicates directly with Supabase. This mode is simpler but places more responsibility on the client.
+
+### Server Middleware Mode
+
+When the server is running and configured, the frontend can communicate with Supabase through the Express server. This provides:
+
+- Enhanced security (service key never exposed to clients)
+- Additional validation and business logic
+- Server-side caching
+- Centralized error handling
+- Unified API for frontend developers
+
+## Troubleshooting
+
+See the [SUPABASE_SETUP.md](SUPABASE_SETUP.md) and [server README](server/README.md) for troubleshooting guidelines.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
