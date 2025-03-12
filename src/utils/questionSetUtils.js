@@ -90,17 +90,22 @@ export const deleteQuestionSet = async (folderName, fileName) => {
 /**
  * Migrate all localStorage question sets to Supabase
  * This should be run once to transition from localStorage to database storage
+ * @param {Object} options - Migration options
+ * @param {boolean} options.overwriteExisting - Whether to overwrite existing records
  * @returns {Promise<Object>} - Result of the migration
  */
-export const migrateLocalStorageToSupabase = async () => {
+export const migrateLocalStorageToSupabase = async (options = {}) => {
   try {
     const user = (await supabase.auth.getUser()).data.user;
     if (!user) {
       throw new Error('You must be logged in to migrate question sets');
     }
     
+    const { overwriteExisting = false } = options;
+    
     const results = {
       migrated: 0,
+      skipped: 0,
       errors: 0,
       details: []
     };
@@ -114,16 +119,49 @@ export const migrateLocalStorageToSupabase = async () => {
       
       for (const [fileName, fileData] of Object.entries(files)) {
         try {
+          // Check if this question set already exists
+          const { data: existingData, error: checkError } = await supabase
+            .from('question_sets')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('folder_name', folderName)
+            .eq('file_name', fileName)
+            .single();
+          
+          if (checkError && checkError.code !== 'PGRST116') { // PGRST116 means not found (which is what we want)
+            throw checkError;
+          }
+          
+          // If it already exists and we're not overwriting, skip it
+          if (existingData && !overwriteExisting) {
+            results.skipped++;
+            results.details.push({
+              folder: folderName,
+              file: fileName,
+              success: true,
+              skipped: true,
+              message: 'Already exists in database'
+            });
+            continue;
+          }
+          
+          // Use upsert with onConflict handling to either insert or update
           const { error } = await supabase
             .from('question_sets')
-            .upsert({
-              user_id: user.id,
-              folder_name: folderName,
-              file_name: fileName,
-              questions: fileData.questions,
-              created_at: fileData.timestamp || new Date().toISOString(),
-              updated_at: fileData.timestamp || new Date().toISOString()
-            });
+            .upsert(
+              {
+                user_id: user.id,
+                folder_name: folderName,
+                file_name: fileName,
+                questions: fileData.questions,
+                created_at: fileData.timestamp || new Date().toISOString(),
+                updated_at: fileData.timestamp || new Date().toISOString()
+              },
+              { 
+                onConflict: 'user_id,folder_name,file_name',
+                ignoreDuplicates: !overwriteExisting 
+              }
+            );
           
           if (error) {
             results.errors++;
@@ -138,7 +176,8 @@ export const migrateLocalStorageToSupabase = async () => {
             results.details.push({
               folder: folderName,
               file: fileName,
-              success: true
+              success: true,
+              updated: existingData ? true : false
             });
           }
         } catch (error) {

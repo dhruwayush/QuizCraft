@@ -119,6 +119,22 @@ const ResultItem = styled.div`
   border-left: 3px solid ${props => props.success ? '#28a745' : '#dc3545'};
 `;
 
+const Checkbox = styled.div`
+  display: flex;
+  align-items: center;
+  margin: 1rem 0;
+  cursor: pointer;
+  
+  input {
+    margin-right: 0.5rem;
+  }
+  
+  label {
+    cursor: pointer;
+    user-select: none;
+  }
+`;
+
 const DataSync = () => {
   const [exportData, setExportData] = useState(null);
   const [importData, setImportData] = useState('');
@@ -129,6 +145,7 @@ const DataSync = () => {
   const [showEnvInfo, setShowEnvInfo] = useState(false);
   const [envInfo, setEnvInfo] = useState(null);
   const [migrationResults, setMigrationResults] = useState(null);
+  const [overwriteExisting, setOverwriteExisting] = useState(false);
 
   const handleExport = async () => {
     try {
@@ -228,12 +245,12 @@ const DataSync = () => {
       setStatus({ type: 'info', message: 'Migrating localStorage question sets to Supabase...' });
       setMigrationResults(null);
       
-      const result = await migrateLocalStorageToSupabase();
+      const result = await migrateLocalStorageToSupabase({ overwriteExisting });
       
       if (result.success) {
         setStatus({ 
           type: 'success', 
-          message: `Successfully migrated ${result.results.migrated} question sets to Supabase (${result.results.errors} errors)`
+          message: `Successfully migrated ${result.results.migrated} question sets to Supabase (${result.results.skipped} skipped, ${result.results.errors} errors)`
         });
         setMigrationResults(result.results);
       } else {
@@ -267,6 +284,18 @@ const DataSync = () => {
             This is a one-time operation to transition from local to cloud storage.
           </SyncDescription>
           
+          <Checkbox>
+            <input 
+              type="checkbox" 
+              id="overwrite-checkbox"
+              checked={overwriteExisting}
+              onChange={(e) => setOverwriteExisting(e.target.checked)}
+            />
+            <label htmlFor="overwrite-checkbox">
+              Overwrite existing question sets (if unchecked, will skip duplicates)
+            </label>
+          </Checkbox>
+          
           <ButtonGroup>
             <Button 
               onClick={handleMigrateLocalStorage} 
@@ -281,6 +310,7 @@ const DataSync = () => {
             <MigrationResults>
               <p>Migration summary:</p>
               <p>- Successfully migrated: {migrationResults.migrated}</p>
+              <p>- Skipped (already exists): {migrationResults.skipped || 0}</p>
               <p>- Errors: {migrationResults.errors}</p>
               
               {migrationResults.details.length > 0 && (
@@ -290,8 +320,12 @@ const DataSync = () => {
                     <ResultItem key={index} success={detail.success}>
                       <div>Folder: {detail.folder}</div>
                       <div>File: {detail.file}</div>
+                      {detail.skipped && <div>Status: Skipped (already exists)</div>}
+                      {detail.updated && <div>Status: Updated existing record</div>}
+                      {!detail.skipped && !detail.updated && detail.success && <div>Status: Added new record</div>}
                       {detail.error && <div>Error: {detail.error}</div>}
-                      <div>Status: {detail.success ? 'Success' : 'Failed'}</div>
+                      {detail.message && <div>Message: {detail.message}</div>}
+                      {!detail.skipped && <div>Status: {detail.success ? 'Success' : 'Failed'}</div>}
                     </ResultItem>
                   ))}
                 </>

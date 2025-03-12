@@ -41,9 +41,12 @@ The migration requires an authenticated user since question sets are associated 
 1. Go to the Admin panel in QuizCraft
 2. Click the "Data Sync" tab
 3. Find the "Migrate LocalStorage to Supabase" section
-4. Click the "Migrate LocalStorage Question Sets" button
-5. Wait for the migration to complete
-6. Review the results to ensure all question sets were migrated successfully
+4. **Important**: Decide whether to skip or overwrite existing question sets
+   - If you check "Overwrite existing question sets", any duplicate question sets will be replaced
+   - If you leave it unchecked, duplicates will be skipped (safer option)
+5. Click the "Migrate LocalStorage Question Sets" button
+6. Wait for the migration to complete
+7. Review the results to ensure all question sets were migrated successfully
 
 ### 4. Verify the Migration
 
@@ -72,9 +75,14 @@ If you encounter issues during migration:
 - Sign out and sign back in
 - Check your Supabase auth configuration
 
+### "Duplicate key value" errors
+- This means the question sets already exist in Supabase
+- Try using the "Overwrite existing question sets" option if you want to update them
+- Or leave it unchecked to skip duplicates (these will show as "Skipped" in the results)
+
 ### Some question sets didn't migrate
 - Check the migration results for specific error messages
-- Try running the migration again (it will skip already migrated sets)
+- Try running the migration again with the appropriate settings
 
 ### Question sets don't appear after migration
 - Refresh the page
