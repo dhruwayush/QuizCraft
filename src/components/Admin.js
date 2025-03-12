@@ -9,6 +9,7 @@ import axios from 'axios';
 import { css } from '@emotion/react';
 import QuizHistory from './QuizHistory';
 import CustomQuiz from './CustomQuiz';
+import DataSync from './DataSync';
 
 const AdminContainer = styled.div`
   padding: 2rem;
@@ -576,6 +577,12 @@ const Admin = () => {
           >
             Create Custom Quiz
           </TabButton>
+          <TabButton 
+            active={activeTab === 'sync'} 
+            onClick={() => setActiveTab('sync')}
+          >
+            Data Sync
+          </TabButton>
         </TabContainer>
 
         {questions.length > 0 && (
@@ -777,6 +784,8 @@ const Admin = () => {
         <QuizNotifications />
       ) : activeTab === 'customQuiz' ? (
         <CustomQuiz />
+      ) : activeTab === 'sync' ? (
+        <DataSync />
       ) : null}
 
       <FileList>

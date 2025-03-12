@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from '@emotion/styled';
 import { theme } from './theme';
 import Quiz from './components/Quiz';
@@ -13,6 +13,7 @@ import Home from './components/Home';
 import QuizHistory from './components/QuizHistory';
 import Auth from './components/Auth';
 import Profile from './components/Profile';
+import { checkEnvironmentVariables } from './utils/envCheck';
 
 const AppContainer = styled.div`
   min-height: 100vh;
@@ -66,6 +67,16 @@ const AppContent = () => {
   const [quizQuestions, setQuizQuestions] = useState([]);
   const [selectedFolder, setSelectedFolder] = useState(null);
   const [savedQuizId, setSavedQuizId] = useState(null);
+  const [envInfo, setEnvInfo] = useState(null);
+
+  useEffect(() => {
+    // Check environment variables on app startup
+    const envData = checkEnvironmentVariables();
+    setEnvInfo(envData);
+
+    // Log the current Supabase URL for debugging
+    console.log('App is connecting to Supabase at:', envData.SUPABASE_URL);
+  }, []);
 
   const handleStartQuiz = (questions, folder, quizId = null) => {
     setQuizQuestions(questions);
