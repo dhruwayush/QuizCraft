@@ -82,7 +82,6 @@ export const migrateLocalStorageToSupabase = async ({ overwriteExisting = false 
           folder_name: set.folder_name || 'Default',
           user_id: user.id,
           questions: set.questions || [],
-          metadata: set.metadata || {},
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };

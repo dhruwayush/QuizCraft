@@ -73,10 +73,85 @@ export const getAllQuestionSets = () => {
             // For questionFiles_[subject] format
             folderName = key.replace('questionFiles_', '');
             fileName = `${folderName}_questions.json`;
+            
+            // The questionFiles_ format might have questions directly or in a different structure
+            // Try to extract questions from common formats we've seen
+            if (typeof data === 'object' && !Array.isArray(data)) {
+              // Some formats might have a "questions" array property
+              if (data.questions && Array.isArray(data.questions)) {
+                questions = data.questions;
+              }
+              // Try the "question" array (singular)
+              else if (data.question && Array.isArray(data.question)) {
+                questions = data.question;
+              }
+              // If we have entries with question text and choices, this may be the questions
+              else if (data.length === undefined && Object.keys(data).length > 0) {
+                // Try to convert object entries to questions array
+                questions = Object.entries(data).map(([key, value]) => {
+                  // If value is an object with question property
+                  if (value && typeof value === 'object' && value.question) {
+                    return {
+                      question: value.question,
+                      choices: value.choices || value.options || [],
+                      correctAnswer: value.correctAnswer || value.correct || 0,
+                      explanation: value.explanation || ''
+                    };
+                  }
+                  // If key is a number and value has text that looks like a question
+                  else if (!isNaN(key) && value && typeof value === 'string' && value.includes('?')) {
+                    return {
+                      question: value,
+                      choices: [],
+                      correctAnswer: 0
+                    };
+                  }
+                  return null;
+                }).filter(q => q !== null);
+              }
+            }
           } else if (key.startsWith('starredQuestions_')) {
             // For starred questions
             folderName = key.replace('starredQuestions_', '');
             fileName = `${folderName}_starred.json`;
+            
+            // Starred questions might be stored as arrays or objects with different structures
+            if (Array.isArray(data)) {
+              questions = data;
+            } else if (typeof data === 'object' && data !== null) {
+              // Some formats store an array of question IDs
+              if (data.starredQuestions && Array.isArray(data.starredQuestions)) {
+                // Convert IDs to simple question objects
+                questions = data.starredQuestions.map(id => ({
+                  question: `Question ID: ${id}`,
+                  isStarred: true,
+                  originalId: id
+                }));
+              }
+              // If the object directly contains the questions
+              else if (Object.keys(data).length > 0) {
+                try {
+                  // Try to convert object entries to questions array
+                  questions = Object.entries(data).map(([key, value]) => {
+                    if (value && typeof value === 'object') {
+                      return {
+                        question: value.question || value.text || key,
+                        choices: value.choices || value.options || [],
+                        correctAnswer: value.correctAnswer || value.correct || 0,
+                        explanation: value.explanation || '',
+                        isStarred: true
+                      };
+                    }
+                    return {
+                      question: `Starred Item: ${key}`,
+                      isStarred: true
+                    };
+                  });
+                } catch (err) {
+                  console.error(`Error processing starred questions for ${key}:`, err);
+                }
+              }
+            }
           } else if (key.startsWith('quizStats_')) {
             // For quiz stats
             folderName = key.replace('quizStats_', '');
