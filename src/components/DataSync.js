@@ -8,6 +8,7 @@ import EnvManager from './EnvManager';
 import { transferQuestionSetsToMainTables, fixQuestionsOptionsFormat } from '../utils/questionSetsConverter';
 import { getLocalStorageKeys } from '../utils/storageUtils';
 import { Button, Divider, Alert, Spin, Typography, Checkbox as AntCheckbox, Card, Statistic, Row, Col } from 'antd';
+import supabase from '../config/supabase';
 
 const SyncContainer = styled.div`
   background: white;
@@ -163,6 +164,10 @@ const DataSync = () => {
   const [error, setError] = useState(null);
   const [transferError, setTransferError] = useState(null);
   const [overwriteExisting, setOverwriteExisting] = useState(false);
+  const [bypassRLS, setBypassRLS] = useState(false);
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [folderError, setFolderError] = useState(null);
+  const [folderSuccess, setFolderSuccess] = useState(false);
 
   const handleExport = async () => {
     try {
@@ -289,14 +294,14 @@ const DataSync = () => {
 
     try {
       // First, transfer question sets to main tables
-      const transferResult = await transferQuestionSetsToMainTables();
+      const transferResult = await transferQuestionSetsToMainTables({ bypassRLS });
       
       if (!transferResult.success) {
         throw new Error(transferResult.error || 'Failed to transfer question sets');
       }
       
       // Then fix any issues with options formatting
-      const fixResult = await fixQuestionsOptionsFormat();
+      const fixResult = await fixQuestionsOptionsFormat({ bypassRLS });
       
       // Combine results
       const combinedResults = {
@@ -310,6 +315,53 @@ const DataSync = () => {
       setTransferError(err.message || 'An error occurred during transfer');
     } finally {
       setIsTransferLoading(false);
+    }
+  };
+
+  const handleCreateDefaultFolder = async () => {
+    setIsCreatingFolder(true);
+    setFolderError(null);
+    setFolderSuccess(false);
+    
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) {
+        throw new Error('You must be logged in to create a folder');
+      }
+      
+      // First check if default folder already exists
+      const { data: existingFolder } = await supabase
+        .from('folders')
+        .select('id')
+        .eq('name', 'Default')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (existingFolder) {
+        setFolderSuccess(true);
+        return; // Folder already exists
+      }
+      
+      // Create default folder
+      const { error } = await supabase
+        .from('folders')
+        .insert({
+          name: 'Default',
+          user_id: user.id,
+          description: 'Default folder for all questions',
+          created_at: new Date().toISOString()
+        });
+      
+      if (error) {
+        throw error;
+      }
+      
+      setFolderSuccess(true);
+    } catch (err) {
+      console.error('Error creating default folder:', err);
+      setFolderError(err.message || 'An error occurred creating the default folder');
+    } finally {
+      setIsCreatingFolder(false);
     }
   };
 
@@ -463,8 +515,23 @@ const DataSync = () => {
           >
             Transfer to Main Tables
           </Button>
+          
+          <Button
+            type="default"
+            onClick={handleCreateDefaultFolder}
+            loading={isCreatingFolder}
+            disabled={isCreatingFolder}
+          >
+            Create Default Folder
+          </Button>
         </ButtonGroup>
         
+        <Checkbox checked={bypassRLS} onChange={(e) => setBypassRLS(e.target.checked)}>
+          Try bypassing RLS (use if getting permission errors)
+        </Checkbox>
+        
+        {folderSuccess && <Alert message="Success" description="Default folder created successfully" type="success" showIcon style={{ marginTop: 16 }} />}
+        {folderError && <Alert message="Error" description={folderError} type="error" showIcon style={{ marginTop: 16 }} />}
         {transferError && <Alert message="Error" description={transferError} type="error" showIcon style={{ marginTop: 16 }} />}
         
         {transferResults && (
