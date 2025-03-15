@@ -29,15 +29,23 @@ export const getAllQuestionSets = () => {
     const questionSets = [];
     
     // Filter keys for those that match the question set pattern
+    // Expanded to include more formats visible in the user's localStorage
     const questionSetKeys = keys.filter(key => 
       key.startsWith('questionSet_') || 
-      key.includes('/questions.json')
+      key.includes('/questions.json') ||
+      key.startsWith('questionFiles_') ||
+      key.startsWith('starredQuestions_') ||
+      key === 'questionFolders' ||
+      key.startsWith('quizStats_')
     );
+    
+    console.log('Found localStorage keys:', questionSetKeys);
     
     // Process each question set key
     questionSetKeys.forEach(key => {
       try {
         const data = JSON.parse(localStorage.getItem(key));
+        console.log(`Processing key: ${key}`, data);
         
         if (data) {
           // Try to determine folder name from key
@@ -61,16 +69,71 @@ export const getAllQuestionSets = () => {
                 fileName = parts.slice(1).join('_');
               }
             }
+          } else if (key.startsWith('questionFiles_')) {
+            // For questionFiles_[subject] format
+            folderName = key.replace('questionFiles_', '');
+            fileName = `${folderName}_questions.json`;
+          } else if (key.startsWith('starredQuestions_')) {
+            // For starred questions
+            folderName = key.replace('starredQuestions_', '');
+            fileName = `${folderName}_starred.json`;
+          } else if (key.startsWith('quizStats_')) {
+            // For quiz stats
+            folderName = key.replace('quizStats_', '');
+            fileName = `${folderName}_stats.json`;
+          } else {
+            // Generic handling
+            folderName = 'System';
+            fileName = key;
+          }
+          
+          // Handle different data formats
+          let questions = [];
+          if (Array.isArray(data)) {
+            questions = data;
+          } else if (data.questions && Array.isArray(data.questions)) {
+            questions = data.questions;
+          } else if (typeof data === 'object' && data !== null) {
+            // For other object formats, try to convert to questions array format
+            if (key === 'questionFolders') {
+              // Special handling for folders
+              Object.keys(data).forEach(folder => {
+                const folderSet = {
+                  file_name: `${folder}_folder.json`,
+                  folder_name: folder,
+                  questions: [],
+                  metadata: { 
+                    type: 'folder',
+                    source: 'localStorage',
+                    importedAt: new Date().toISOString()
+                  }
+                };
+                questionSets.push(folderSet);
+              });
+              return; // Skip normal processing for this key
+            } else if (key.startsWith('quizStats_')) {
+              // Skip quiz stats if they don't contain actual questions
+              if (!data.questions) return;
+              questions = data.questions;
+            }
           }
           
           // Create a standardized question set object
           const questionSet = {
             file_name: fileName,
             folder_name: folderName,
-            questions: Array.isArray(data) ? data : (data.questions || []),
+            questions: questions,
             metadata: !Array.isArray(data) && typeof data === 'object' ? 
-              (data.metadata || {}) : 
-              { source: 'localStorage', importedAt: new Date().toISOString() }
+              (data.metadata || {
+                source: 'localStorage',
+                originalKey: key,
+                importedAt: new Date().toISOString()
+              }) : 
+              { 
+                source: 'localStorage',
+                originalKey: key,
+                importedAt: new Date().toISOString()
+              }
           };
           
           questionSets.push(questionSet);
@@ -80,6 +143,7 @@ export const getAllQuestionSets = () => {
       }
     });
     
+    console.log('Processed question sets:', questionSets.length);
     return questionSets;
   } catch (error) {
     console.error('Error getting question sets from localStorage:', error);

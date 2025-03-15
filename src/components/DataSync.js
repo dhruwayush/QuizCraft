@@ -364,6 +364,23 @@ const DataSync = () => {
               <p>- Skipped (already exists): {migrationResults.skipped || 0}</p>
               <p>- Errors: {migrationResults.errors}</p>
               {migrationResults.message && <p>Message: {migrationResults.message}</p>}
+              
+              {migrationResults.details && migrationResults.details.length > 0 && (
+                <>
+                  <p>Details:</p>
+                  {migrationResults.details.map((detail, index) => (
+                    <ResultItem key={index} success={detail.success}>
+                      <div>Folder: {detail.folder}</div>
+                      <div>File: {detail.file}</div>
+                      {detail.skipped && <div>Status: Skipped (already exists)</div>}
+                      {detail.updated && <div>Status: Updated existing record</div>}
+                      {!detail.skipped && !detail.updated && detail.success && <div>Status: Added new record</div>}
+                      {detail.error && <div>Error: {detail.error}</div>}
+                      {detail.message && <div>Message: {detail.message}</div>}
+                    </ResultItem>
+                  ))}
+                </>
+              )}
             </MigrationResults>
           )}
         </MigrationSection>

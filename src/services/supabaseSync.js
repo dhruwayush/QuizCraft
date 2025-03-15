@@ -16,6 +16,7 @@ export const migrateLocalStorageToSupabase = async ({ overwriteExisting = false 
     
     // Get all question sets from localStorage
     const questionSets = getAllQuestionSets();
+    console.log(`Found ${questionSets.length} question sets in localStorage`);
     
     if (!questionSets || questionSets.length === 0) {
       return {
@@ -30,12 +31,29 @@ export const migrateLocalStorageToSupabase = async ({ overwriteExisting = false 
     const results = {
       migrated: 0,
       skipped: 0,
-      errors: 0
+      errors: 0,
+      details: []
     };
     
     // Process each question set
     for (const set of questionSets) {
       try {
+        // Skip sets with no questions or empty questions
+        if (!set.questions || !Array.isArray(set.questions) || set.questions.length === 0) {
+          console.log(`Skipping ${set.file_name} - no valid questions found`);
+          results.skipped++;
+          results.details.push({
+            folder: set.folder_name,
+            file: set.file_name,
+            skipped: true,
+            message: 'No valid questions found',
+            success: true
+          });
+          continue;
+        }
+        
+        console.log(`Processing ${set.folder_name}/${set.file_name} with ${set.questions.length} questions`);
+      
         // Check if the question set already exists
         const { data: existingSet } = await supabase
           .from('question_sets')
@@ -46,7 +64,15 @@ export const migrateLocalStorageToSupabase = async ({ overwriteExisting = false 
         
         // If the set exists and we're not overwriting, skip it
         if (existingSet && !overwriteExisting) {
+          console.log(`Skipping ${set.file_name} - already exists`);
           results.skipped++;
+          results.details.push({
+            folder: set.folder_name,
+            file: set.file_name,
+            skipped: true,
+            message: 'Already exists in Supabase',
+            success: true
+          });
           continue;
         }
         
@@ -63,25 +89,46 @@ export const migrateLocalStorageToSupabase = async ({ overwriteExisting = false 
         
         // If the set exists and we're overwriting, update it
         if (existingSet && overwriteExisting) {
+          console.log(`Updating ${set.file_name}`);
           const { error } = await supabase
             .from('question_sets')
             .update(questionSetData)
             .eq('id', existingSet.id);
           
           if (error) throw error;
+          
+          results.details.push({
+            folder: set.folder_name,
+            file: set.file_name,
+            updated: true,
+            success: true
+          });
         } else {
           // Otherwise, insert a new record
+          console.log(`Creating new question set: ${set.file_name}`);
           const { error } = await supabase
             .from('question_sets')
             .insert(questionSetData);
           
           if (error) throw error;
+          
+          results.details.push({
+            folder: set.folder_name,
+            file: set.file_name,
+            success: true
+          });
         }
         
         results.migrated++;
       } catch (error) {
         console.error(`Error migrating question set ${set.file_name}:`, error);
         results.errors++;
+        results.details.push({
+          folder: set.folder_name || 'Unknown',
+          file: set.file_name || 'Unknown',
+          success: false,
+          error: error.message
+        });
       }
     }
     
